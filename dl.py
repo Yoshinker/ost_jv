@@ -71,80 +71,79 @@ if csv_file != "":
 else:
 	download_list.append([output_dir, album_url])
 
-#print(download_list)
-
 for album in download_list:
 
-	if not os.path.exists(album[0]):
-		os.makedirs(album[0])
+	try:
+		
+		if verbose:
+			print("Album : " + album[0])
 
-	main_page = requests.get(album[1])
-	main_soup = BeautifulSoup(main_page.content, 'html.parser')
+		if not os.path.exists(album[0]):
+			os.makedirs(album[0])
 
-	# DOWNLOAD COVER
-	cover = main_soup.find("img")
-	if cover is not None and not re.search("album_views", cover['src']):
-		cover_link = cover['src']
-		r = requests.get(cover_link, allow_redirects=True)
-		open(album[0] + "/cover.jpg", 'wb').write(r.content)
-		imagedata = open(album[0] + '/cover.jpg', 'rb').read()
+		main_page = requests.get(album[1])
+		main_soup = BeautifulSoup(main_page.content, 'html.parser')
 
-	#print(soup.prettify())
+		# DOWNLOAD COVER
+		cover = main_soup.find("img")
+		if cover is not None and not re.search("album_views", cover['src']):
+			cover_link = cover['src']
+			r = requests.get(cover_link, allow_redirects=True)
+			open(album[0] + "/cover.jpg", 'wb').write(r.content)
+			imagedata = open(album[0] + '/cover.jpg', 'rb').read()
 
-	songlist = main_soup.find(id="songlist")
-	lines = songlist.find_all("tr")
+		songlist = main_soup.find(id="songlist")
+		lines = songlist.find_all("tr")
 
-	count = 1
+		count = 1
 
-	for l in lines:
-		song = l.find("a")
-		if song is not None:
-			#print(song)
-			#print(song_url)
+		for l in lines:
+			song = l.find("a")
+			if song is not None:
 
-			base_name = str(count) + ". " + song.get_text()
-			song_name = str(count) + ". " + song.get_text()
-			if not re.search("\.mp3$", song_name):
-				song_name += ".mp3"
+				base_name = str(count) + ". " + song.get_text()
+				song_name = str(count) + ". " + song.get_text()
+				if not re.search("\.mp3$", song_name):
+					song_name += ".mp3"
 
-			song_url = base_url + song["href"]
+				song_url = base_url + song["href"]
 
-			page = requests.get(song_url)
-			soup = BeautifulSoup(page.content, 'html.parser')
+				page = requests.get(song_url)
+				soup = BeautifulSoup(page.content, 'html.parser')
 
-			click = soup.find("a", text="Click here to download as MP3")
+				click = soup.find("a", text="Click here to download as MP3")
 
-			if click is None:
-				click = soup.findAll("span", {"class": "songDownloadLink"})[0].parent
+				if click is None:
+					click = soup.findAll("span", {"class": "songDownloadLink"})[0].parent
 
-			link = click["href"]
+				link = click["href"]
 
-			#print(link)
 
-			# DOWNLOAD
-			path = album[0] + "/" + song_name
+				# DOWNLOAD
+				path = album[0] + "/" + song_name
 
-			if verbose:
-				print("Downloading " + song_name + " ...")
+				if verbose:
+					print("Downloading " + song_name + " ...")
 
-			r = requests.get(link, allow_redirects=True)
-			open(path, 'wb').write(r.content)
+				r = requests.get(link, allow_redirects=True)
+				open(path, 'wb').write(r.content)
 
-			if cover is not None and not re.search("album_views", cover['src']):
+				if cover is not None and not re.search("album_views", cover['src']):
 
-				try: 
-				    id3 = ID3(path)
-				except ID3NoHeaderError:
-				    id3 = ID3()
+					try: 
+						id3 = ID3(path)
+					except ID3NoHeaderError:
+						id3 = ID3()
+					
+					id3.add(TIT2(encoding=3, text=base_name))
+
+					if not 'APIC' in id3:
+						id3.add(APIC(3, 'image/jpeg', 3, 'Front cover', imagedata))
+
+					id3.save(path)
+
+				if verbose:
 				
-				id3.add(TIT2(encoding=3, text=base_name))
-
-				if not 'APIC' in id3:
-					id3.add(APIC(3, 'image/jpeg', 3, 'Front cover', imagedata))
-
-				id3.save(path)
-
-			if verbose:
-				print("Done!")
-			
-			count += 1
+				count += 1
+	except:
+		pass
